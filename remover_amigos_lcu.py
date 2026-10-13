@@ -1,4 +1,4 @@
-"""Remove todos os amigos do League of Legends usando a API local do Riot Client."""
+"""Remove all League of Legends friends through the local Riot Client API."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def find_lockfile(game_dir: Path) -> Path:
     for path in candidates:
         if path.is_file():
             return path
-    raise FileNotFoundError("lockfile não encontrado. Abra o Riot Client/League of Legends antes de executar.")
+    raise FileNotFoundError("Lockfile not found. Open the Riot Client and League of Legends first.")
 
 
 def read_lockfile(path: Path) -> tuple[str, str]:
@@ -54,13 +54,13 @@ class Lcu:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--yes", action="store_true", help="confirma sem pedir APAGAR")
+    parser.add_argument("--yes", action="store_true", help="confirm without asking for DELETE")
     args = parser.parse_args()
 
-    game_input = input("Digite o caminho da pasta do League of Legends: ").strip().strip('"')
+    game_input = input("Enter the League of Legends folder path: ").strip().strip('"')
     game_dir = Path(game_input)
     if not game_dir.is_dir():
-        print(f"Pasta não encontrada: {game_dir}", file=sys.stderr)
+        print(f"Folder not found: {game_dir}", file=sys.stderr)
         return 1
 
     try:
@@ -69,21 +69,21 @@ def main() -> int:
         lcu = Lcu(base_url, password)
         friends = lcu.request("GET", "/lol-chat/v1/friends") or []
     except (OSError, urllib.error.URLError, RuntimeError, ValueError) as exc:
-        print(f"Erro ao conectar ao Riot Client: {exc}", file=sys.stderr)
+        print(f"Could not connect to the Riot Client: {exc}", file=sys.stderr)
         return 1
 
     if not isinstance(friends, list):
-        print("Resposta inesperada ao consultar a lista de amigos.", file=sys.stderr)
+        print("Unexpected response while retrieving the friend list.", file=sys.stderr)
         return 1
 
     backup = Path.cwd() / f"amigos_lol_backup_{datetime.now():%Y%m%d_%H%M%S}.json"
     backup.write_text(json.dumps(friends, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Amigos encontrados: {len(friends)}\nBackup salvo em: {backup}")
+    print(f"Friends found: {len(friends)}\nBackup saved to: {backup}")
     if not friends:
-        print("A lista já está vazia.")
+        print("The friend list is already empty.")
         return 0
-    if not args.yes and input("Digite APAGAR para remover todos os amigos: ") != "APAGAR":
-        print("Cancelado; nenhum amigo foi removido.")
+    if not args.yes and input("Type DELETE to remove all friends: ") != "DELETE":
+        print("Cancelled; no friends were removed.")
         return 0
 
     removed = 0
@@ -91,7 +91,7 @@ def main() -> int:
         current = lcu.request("GET", "/lol-chat/v1/friends") or []
         if not current:
             break
-        print(f"Rodada {round_number}: {len(current)} amigo(s) restante(s).")
+        print(f"Round {round_number}: {len(current)} friend(s) remaining.")
         progress = False
         for friend in current:
             friend_id = friend.get("id") if isinstance(friend, dict) else None
@@ -101,15 +101,15 @@ def main() -> int:
                 lcu.request("DELETE", f"/lol-chat/v1/friends/{friend_id}")
                 removed += 1
                 progress = True
-                print(f"Removido: {friend.get('name', friend_id)}")
+                print(f"Removed: {friend.get('name', friend_id)}")
             except urllib.error.HTTPError as exc:
-                print(f"Falha em {friend_id}: HTTP {exc.code}", file=sys.stderr)
+                print(f"Failed for {friend_id}: HTTP {exc.code}", file=sys.stderr)
         if not progress:
             break
         time.sleep(0.5)
 
     remaining = lcu.request("GET", "/lol-chat/v1/friends") or []
-    print(f"Concluído: {removed} remoções processadas, {len(remaining)} amigo(s) restante(s).")
+    print(f"Finished: {removed} removal(s) processed, {len(remaining)} friend(s) remaining.")
     return 0 if not remaining else 2
 
 
